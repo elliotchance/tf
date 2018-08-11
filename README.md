@@ -41,3 +41,25 @@ The above test will output (in verbose mode):
 --- PASS: TestRemainder/Remainder#3 (0.00s)
 PASS
 ```
+
+# Testing Struct Functions
+
+You can test struct functions by providing the struct value as the first
+parameter followed by any function arguments, if any.
+
+```go
+type Item struct {
+	a, b float64
+}
+
+func (i Item) Add(c float64) float64 {
+	return i.a + i.b + c
+}
+
+func TestItem_Add(t *testing.T) {
+	Sum := tf.Function(t, Item.Add)
+
+	Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
+}
+```
+

@@ -39,4 +39,19 @@ func TestRemainder(t *testing.T) {
 	Remainder(10, 3).Returns(3, 1)
 	Remainder(10, 2).Returns(5, 0)
 	Remainder(17, 7).Returns(2, 3)
+
+	Remainder(5, 0).Panics()
+	Remainder(3, 0).Panics("runtime error: integer divide by zero")
+}
+
+func Panicer() {
+	panic(Item{5, 7})
+}
+
+func TestPanicer(t *testing.T) {
+	Panicer := tf.Function(t, Panicer)
+
+	Panicer().Panics()
+	Panicer().Panics("tf_test.Item{a:5, b:7}")
+	Panicer().Panics(Item{5, 7})
 }

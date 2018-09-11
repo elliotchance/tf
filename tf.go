@@ -54,30 +54,82 @@ type F struct {
 
 var funcMap = map[string]int{}
 
-func (f *F) Returns(expected ...interface{}) {
+func (f *F) getTestName() string {
 	if _, ok := funcMap[f.fnName]; !ok {
 		funcMap[f.fnName] = 0
 	}
 
 	funcMap[f.fnName] += 1
 
-	f.t.Run(fmt.Sprintf("%s#%d", f.fnName, funcMap[f.fnName]), func(t *testing.T) {
-		args := []reflect.Value{}
-		for argIndex, arg := range f.args {
-			if arg == nil {
-				t.Fatalf("ambiguous nil for argument %d", argIndex+1)
+	return fmt.Sprintf("%s#%d", f.fnName, funcMap[f.fnName])
+}
+
+func stringValue(x interface{}) string {
+	switch a := x.(type) {
+	case string:
+		return a
+
+	case fmt.Stringer:
+		return a.String()
+
+	default:
+		return fmt.Sprintf("%#+v", a)
+	}
+}
+
+// Panic tests if the function will panic. You can provide a single optional
+// expectedValue that is tested against the panic value. If the expectedValue is
+// a string but the actual panic is not a string it will try to convert the
+// panic value into a string with:
+//
+//   fmt.Sprintf("%#+v", r)
+//
+// For example each of the following are more verbose versions of the previous:
+//
+//
+func (f *F) Panics(expectedValue ...interface{}) {
+	if len(expectedValue) > 1 {
+		f.t.Fatal("more than one value provided for Panics()")
+	}
+
+	f.t.Run(f.getTestName(), func(t *testing.T) {
+		defer func() {
+			r := recover()
+			if assert.NotNil(t, r, "did not panic") && len(expectedValue) > 0 {
+				if expected, ok := expectedValue[0].(string); ok {
+					assert.Equal(t, expected, stringValue(r))
+				} else {
+					assert.Equal(t, expected, r)
+				}
 			}
+		}()
 
-			args = append(args, reflect.ValueOf(arg))
-		}
-
-		returns := []interface{}{}
-		for _, r := range reflect.ValueOf(f.fn).Call(args) {
-			returns = append(returns, r.Interface())
-		}
-
-		assert.Equal(t, expected, returns)
+		f.invoke(t)
 	})
+}
+
+func (f *F) Returns(expected ...interface{}) {
+	f.t.Run(f.getTestName(), func(t *testing.T) {
+		assert.Equal(t, expected, f.invoke(t))
+	})
+}
+
+func (f *F) invoke(t *testing.T) []interface{} {
+	args := []reflect.Value{}
+	for argIndex, arg := range f.args {
+		if arg == nil {
+			t.Fatalf("ambiguous nil for argument %d", argIndex+1)
+		}
+
+		args = append(args, reflect.ValueOf(arg))
+	}
+
+	returns := []interface{}{}
+	for _, r := range reflect.ValueOf(f.fn).Call(args) {
+		returns = append(returns, r.Interface())
+	}
+
+	return returns
 }
 
 func getFunctionName(fn interface{}) string {

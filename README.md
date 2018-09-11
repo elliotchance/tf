@@ -21,6 +21,9 @@ func TestRemainder(t *testing.T) {
     Remainder(10, 3).Returns(3, 1)
     Remainder(10, 2).Returns(5, 0)
     Remainder(17, 7).Returns(2, 3)
+
+    Remainder(5, 0).Panics()
+    Remainder(3, 0).Panics("runtime error: integer divide by zero")
 }
 ```
 
@@ -42,24 +45,24 @@ The above test will output (in verbose mode):
 PASS
 ```
 
-# Testing Struct Functions
+Testing Struct Functions
+------------------------
 
 You can test struct functions by providing the struct value as the first
 parameter followed by any function arguments, if any.
 
 ```go
 type Item struct {
-	a, b float64
+    a, b float64
 }
 
 func (i Item) Add(c float64) float64 {
-	return i.a + i.b + c
+    return i.a + i.b + c
 }
 
 func TestItem_Add(t *testing.T) {
-	Sum := tf.Function(t, Item.Add)
+    Sum := tf.Function(t, Item.Add)
 
-	Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
+    Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
 }
 ```
-

@@ -2,14 +2,14 @@
 
 tf is a microframework for parametrized testing of functions in Go.
 
-I wrote this because I was tired of creating a []struct{} fixture for most of
-my tests. I knew there had to be an easier and more reliable way.
+* [Function](#functions)
+* [ServeHTTP](#servehttp)
+
+# Functions
 
 It offers a simple and intuitive syntax for tests by wrapping the function:
 
 ```go
-import "github.com/elliotchance/tf"
-
 // Remainder returns the quotient and remainder from dividing two integers.
 func Remainder(a, b int) (int, int) {
     return a / b, a % b
@@ -17,7 +17,7 @@ func Remainder(a, b int) (int, int) {
 
 func TestRemainder(t *testing.T) {
     Remainder := tf.Function(t, Remainder)
-    
+
     Remainder(10, 3).Returns(3, 1)
     Remainder(10, 2).Returns(5, 0)
     Remainder(17, 7).Returns(2, 3)
@@ -42,7 +42,7 @@ The above test will output (in verbose mode):
 PASS
 ```
 
-# Testing Struct Functions
+## Struct Functions
 
 You can test struct functions by providing the struct value as the first
 parameter followed by any function arguments, if any.
@@ -63,3 +63,62 @@ func TestItem_Add(t *testing.T) {
 }
 ```
 
+# ServeHTTP
+
+Super easy HTTP testing by using the ServeHTTP function. This means that you do
+not have to run the server and it is compatible with all HTTP libraries and
+frameworks but has all the functionality of the server itself.
+
+The simplest example is to use the default muxer in the `http` package:
+
+```go
+http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprint(w, "Hello, World!")
+})
+```
+
+And now we can write some tests:
+
+```go
+func TestHTTPRouter(t *testing.T) {
+	run := tf.ServeHTTP(t, http.DefaultServeMux.ServeHTTP)
+
+	run(&tf.HTTPTest{
+		Path:         "/hello",
+		Status:       http.StatusOK,
+		ResponseBody: strings.NewReader("Hello, World!"),
+	})
+
+	run(&tf.HTTPTest{
+		Path:   "/world",
+		Status: http.StatusNotFound,
+	})
+}
+```
+
+It is compatible with all HTTP frameworks because they must all expose a
+ServeHTTP which is the entry point for the request router/handler.
+
+There are many more options for HTTPTest. Some HTTP tests require multiple
+operations, you can use `MultiHTTPTest` for this:
+
+```go
+run(&tf.MultiHTTPTest{
+	Steps: []*tf.HTTPTest{
+		{
+			Path:        "/save",
+			Method:      http.MethodPut,
+			RequestBody: strings.NewReader(`{"foo":"bar"}`),
+			Status:      http.StatusCreated,
+		},
+		{
+			Path:         "/fetch",
+			Method:       http.MethodGet,
+			Status:       http.StatusOK,
+			ResponseBody: strings.NewReader(`{"foo":"bar"}`),
+		},
+	},
+})
+```
+
+Each step will only proceed if the previous step was successful.

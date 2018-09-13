@@ -2,8 +2,28 @@ package tf_test
 
 import (
 	"testing"
+
 	"github.com/elliotchance/tf"
 )
+
+type Optional struct {
+	Name string
+}
+
+func NewNil(o *Optional) string {
+	if o == nil {
+		o = &Optional{
+			Name: "default",
+		}
+	}
+
+	return o.Name
+}
+
+func TestNil(t *testing.T) {
+	NewNil := tf.Function(t, NewNil)
+	NewNil(nil).Returns("default")
+}
 
 type Item struct {
 	a, b float64
@@ -39,4 +59,15 @@ func TestRemainder(t *testing.T) {
 	Remainder(10, 3).Returns(3, 1)
 	Remainder(10, 2).Returns(5, 0)
 	Remainder(17, 7).Returns(2, 3)
+}
+
+func Booler(b bool) bool {
+	return b
+}
+
+func TestTrueFalse(t *testing.T) {
+	Booler := tf.Function(t, Booler)
+
+	Booler(true).True()
+	Booler(false).False()
 }

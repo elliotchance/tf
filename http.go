@@ -1,82 +1,99 @@
 package tf
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type HTTPCheckFunc func(t *testing.T, request *http.Request, response *httptest.ResponseRecorder) bool
+type (
+	HTTPCheckFunc   func(t *testing.T, request *http.Request, response *httptest.ResponseRecorder) bool
+	HTTPFinallyFunc func(request *http.Request, response *httptest.ResponseRecorder)
+	HTTPBeforeFunc  func(request *http.Request, response *httptest.ResponseRecorder)
 
-type HTTPFinallyFunc func(request *http.Request, response *httptest.ResponseRecorder)
+	HTTPTester interface {
+		TestName() string
+		Tests() []*HTTPTest
+	}
 
-type HTTPBeforeFunc func(request *http.Request, response *httptest.ResponseRecorder)
+	MultiHTTPTest struct {
+		// Name is used as the test name. If it is empty the test name will be based
+		// on the Path.
+		Name string
 
-type HTTPTest struct {
-	// Name is used as the test name. If it is empty the test name will be based
-	// on the Path.
-	Name string
+		// Before is run before any of the Steps begin.
+		Before func()
 
-	// Method is the HTTP request method. If blank then "GET" will be used.
-	Method string
+		Steps []*HTTPTest
+	}
 
-	// Path used in the request. If the Path is blank then "/" is used because
-	// it is not possible to parse an empty path.
-	Path string
+	HTTPTest struct {
+		// Name is used as the test name. If it is empty the test name will be based
+		// on the Path.
+		Name string
 
-	// RequestBody is the body for the request. You use a string as the body
-	// with:
-	//
-	//   RequestBody: strings.NewReader("foo bar")
-	//
-	RequestBody io.Reader
+		// Method is the HTTP request method. If blank then "GET" will be used.
+		Method string
 
-	// RequestHeaders will add or replace any header on the request.
-	RequestHeaders map[string]string
+		// Path used in the request. If the Path is blank then "/" is used because
+		// it is not possible to parse an empty path.
+		Path string
 
-	// ResponseHeaders will be checked from the response. Only the headers in
-	// ResponseHeaders will be checked and and their values must be exactly
-	// equal.
-	//
-	// If you need to do more sophisticated checking or headers you should use
-	// Check.
-	ResponseHeaders map[string]string
+		// RequestBody is the body for the request. You use a string as the body
+		// with:
+		//
+		//   RequestBody: strings.NewReader("foo bar")
+		//
+		RequestBody io.Reader
 
-	// ResponseBody will check the body of the response. ResponseBody must be
-	// not nil for the check to occur.
-	//
-	// You can check a string with:
-	//
-	//   ResponseBody: strings.NewReader("foo bar")
-	//
-	ResponseBody io.Reader
+		// RequestHeaders will add or replace any header on the request.
+		RequestHeaders map[string]string
 
-	// Status is the expected response HTTP status code. You can use one of the
-	// constants in the http package such as http.StatusOK. If Status is not
-	// provided then the response status will not be checked.
-	Status int
+		// ResponseHeaders will be checked from the response. Only the headers in
+		// ResponseHeaders will be checked and and their values must be exactly
+		// equal.
+		//
+		// If you need to do more sophisticated checking or headers you should use
+		// Check.
+		ResponseHeaders map[string]string
 
-	// Check is an optional function that is run before any other assertions. It
-	// receives the request and response so you can do any custom validation. If
-	// Check returns true the built in assertions will continue. Otherwise a
-	// return value of false means to stop checking the response because an
-	// error has already been found.
-	Check HTTPCheckFunc
+		// ResponseBody will check the body of the response. ResponseBody must be
+		// not nil for the check to occur.
+		//
+		// You can check a string with:
+		//
+		//   ResponseBody: strings.NewReader("foo bar")
+		//
+		ResponseBody io.Reader
 
-	// Finally is always called as a last event, even if the test fails. It is
-	// useful for guaranteeing cleanup or restoration of environments.
-	//
-	// The return value is ignored.
-	Finally HTTPFinallyFunc
+		// Status is the expected response HTTP status code. You can use one of the
+		// constants in the http package such as http.StatusOK. If Status is not
+		// provided then the response status will not be checked.
+		Status int
 
-	// Before is run after the request and record is setup but before the
-	// request is executed.
-	Before HTTPBeforeFunc
-}
+		// Check is an optional function that is run before any other assertions. It
+		// receives the request and response so you can do any custom validation. If
+		// Check returns true the built in assertions will continue. Otherwise a
+		// return value of false means to stop checking the response because an
+		// error has already been found.
+		Check HTTPCheckFunc
+
+		// Finally is always called as a last event, even if the test fails. It is
+		// useful for guaranteeing cleanup or restoration of environments.
+		//
+		// The return value is ignored.
+		Finally HTTPFinallyFunc
+
+		// Before is run after the request and record is setup but before the
+		// request is executed.
+		Before HTTPBeforeFunc
+	}
+)
 
 func safeTestName(s string) string {
 	return strings.Replace(s, ":", "", -1)
@@ -104,22 +121,6 @@ func (ht *HTTPTest) RealPath() string {
 	}
 
 	return ht.Path
-}
-
-type HTTPTester interface {
-	TestName() string
-	Tests() []*HTTPTest
-}
-
-type MultiHTTPTest struct {
-	// Name is used as the test name. If it is empty the test name will be based
-	// on the Path.
-	Name string
-
-	// Before is run before any of the Steps begin.
-	Before func()
-
-	Steps []*HTTPTest
 }
 
 func (ht *MultiHTTPTest) Tests() []*HTTPTest {

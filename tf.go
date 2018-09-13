@@ -37,38 +37,50 @@
 package tf
 
 import (
-	"testing"
 	"fmt"
 	"reflect"
-	"github.com/stretchr/testify/assert"
 	"runtime"
 	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
+// F wrapper around a func which handles testing instance, agrs and reveals function name
 type F struct {
 	t      *testing.T
 	fn     interface{}
 	args   []interface{}
+	fnArgs []reflect.Type
 	fnName string
 }
 
-var funcMap = map[string]int{}
+var (
+	funcMap = map[string]int{}
+)
 
+// Returns matches if expected result matches actual
+//
+//	Remainder := tf.Function(t, func(a,b int) int { return a + b })
+//	Remainder(1, 2).Returns(3)
+//
 func (f *F) Returns(expected ...interface{}) {
 	if _, ok := funcMap[f.fnName]; !ok {
 		funcMap[f.fnName] = 0
 	}
 
-	funcMap[f.fnName] += 1
+	funcMap[f.fnName]++
 
 	f.t.Run(fmt.Sprintf("%s#%d", f.fnName, funcMap[f.fnName]), func(t *testing.T) {
-		args := []reflect.Value{}
-		for argIndex, arg := range f.args {
+		args := make([]reflect.Value, len(f.args))
+		for idx, arg := range f.args {
+			// Cast nil properly
 			if arg == nil {
-				t.Fatalf("ambiguous nil for argument %d", argIndex+1)
+				args[idx] = reflect.Zero(f.fnArgs[idx])
+				continue
 			}
 
-			args = append(args, reflect.ValueOf(arg))
+			args[idx] = reflect.ValueOf(arg)
 		}
 
 		returns := []interface{}{}
@@ -80,6 +92,38 @@ func (f *F) Returns(expected ...interface{}) {
 	})
 }
 
+// True matches is function returns true as a result
+//
+//   func Switch() bool {
+//       return true
+//   }
+//
+//   func TestSwitch(t *testing.T) {
+//       Switch := tf.Function(t, Switch)
+//
+//       Switch().True()
+//   }
+//
+func (f *F) True() {
+	f.Returns(true)
+}
+
+// False matches is function returns false as a result
+//
+//   func Switch() bool {
+//       return false
+//   }
+//
+//   func TestSwitch(t *testing.T) {
+//       Switch := tf.Function(t, Switch)
+//
+//       Switch().False()
+//   }
+//
+func (f *F) False() {
+	f.Returns(false)
+}
+
 func getFunctionName(fn interface{}) string {
 	name := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
 	parts := strings.Split(name, ".")
@@ -87,12 +131,40 @@ func getFunctionName(fn interface{}) string {
 	return parts[len(parts)-1]
 }
 
+func getFunctionArgs(fn interface{}) []reflect.Type {
+	ref := reflect.ValueOf(fn).Type()
+	argsCount := ref.NumIn()
+	args := make([]reflect.Type, argsCount)
+	for i := 0; i < argsCount; i++ {
+		args[i] = ref.In(i)
+	}
+
+	return args
+}
+
+// Function wraps fn into F testing type and returns back function to which you can use
+// as a regular function in e.g:
+//
+//   // Remainder returns the quotient and remainder from dividing two integers.
+//   func Remainder(a, b int) (int, int) {
+//       return a / b, a % b
+//   }
+//
+//   func TestRemainder(t *testing.T) {
+//       Remainder := tf.Function(t, Remainder)
+//
+//       Remainder(10, 3).Returns(3, 1)
+//       Remainder(10, 2).Returns(5, 0)
+//       Remainder(17, 7).Returns(2, 3)
+//   }
+//
 func Function(t *testing.T, fn interface{}) func(args ...interface{}) *F {
 	return func(args ...interface{}) *F {
 		return &F{
 			t:      t,
 			fn:     fn,
 			args:   args,
+			fnArgs: getFunctionArgs(fn),
 			fnName: getFunctionName(fn),
 		}
 	}

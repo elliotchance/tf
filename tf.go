@@ -48,11 +48,12 @@ import (
 
 // F wrapper around a func which handles testing instance, agrs and reveals function name
 type F struct {
-	t      *testing.T
-	fn     interface{}
-	args   []interface{}
-	fnArgs []reflect.Type
-	fnName string
+	t         *testing.T
+	fn        interface{}
+	args      []interface{}
+	fnArgsIn  []reflect.Type
+	fnArgsOut []reflect.Type
+	fnName    string
 }
 
 var (
@@ -72,20 +73,27 @@ func (f *F) Returns(expected ...interface{}) {
 	funcMap[f.fnName]++
 
 	f.t.Run(fmt.Sprintf("%s#%d", f.fnName, funcMap[f.fnName]), func(t *testing.T) {
-		args := make([]reflect.Value, len(f.args))
+		// Casting calling arguments
+		argsIn := make([]reflect.Value, len(f.args))
 		for idx, arg := range f.args {
-			// Cast nil properly
 			if arg == nil {
-				args[idx] = reflect.Zero(f.fnArgs[idx])
-				continue
+				argsIn[idx] = reflect.Zero(f.fnArgsIn[idx])
+			} else {
+				argsIn[idx] = reflect.ValueOf(arg).Convert(f.fnArgsIn[idx])
 			}
-
-			args[idx] = reflect.ValueOf(arg)
 		}
 
-		returns := []interface{}{}
-		for _, r := range reflect.ValueOf(f.fn).Call(args) {
-			returns = append(returns, r.Interface())
+		returns := make([]interface{}, len(f.fnArgsOut))
+		for idx, r := range reflect.ValueOf(f.fn).Call(argsIn) {
+			returns[idx] = r.Interface()
+		}
+
+		for idx, e := range expected {
+			if e == nil {
+				expected[idx] = reflect.Zero(f.fnArgsOut[idx]).Interface()
+			} else {
+				expected[idx] = reflect.ValueOf(e).Convert(f.fnArgsOut[idx]).Interface()
+			}
 		}
 
 		assert.Equal(t, expected, returns)
@@ -142,6 +150,17 @@ func getFunctionArgs(fn interface{}) []reflect.Type {
 	return args
 }
 
+func getFunctionReturns(fn interface{}) []reflect.Type {
+	ref := reflect.ValueOf(fn).Type()
+	argsCount := ref.NumOut()
+	args := make([]reflect.Type, argsCount)
+	for i := 0; i < argsCount; i++ {
+		args[i] = ref.Out(i)
+	}
+
+	return args
+}
+
 // Function wraps fn into F testing type and returns back function to which you can use
 // as a regular function in e.g:
 //
@@ -161,11 +180,12 @@ func getFunctionArgs(fn interface{}) []reflect.Type {
 func Function(t *testing.T, fn interface{}) func(args ...interface{}) *F {
 	return func(args ...interface{}) *F {
 		return &F{
-			t:      t,
-			fn:     fn,
-			args:   args,
-			fnArgs: getFunctionArgs(fn),
-			fnName: getFunctionName(fn),
+			t:         t,
+			fn:        fn,
+			args:      args,
+			fnArgsIn:  getFunctionArgs(fn),
+			fnArgsOut: getFunctionReturns(fn),
+			fnName:    getFunctionName(fn),
 		}
 	}
 }

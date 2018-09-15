@@ -37,6 +37,26 @@ func (i Item) Add(c float64) float64 {
 	return i.a + i.b + c
 }
 
+func TestCasting(t *testing.T) {
+	t.Run("int8/int64 casting", func(t *testing.T) {
+		Run := tf.Function(t, func(a, b int8) int64 {
+			return int64(a + b)
+		})
+
+		Run(1, 2).Returns(3)
+	})
+
+	t.Run("nil in return casting", func(t *testing.T) {
+		type MyStruct struct{}
+
+		Run := tf.Function(t, func(a, b int8) (int64, *MyStruct) {
+			return int64(a + b), nil
+		})
+
+		Run(1, 2).Returns(3, nil)
+	})
+}
+
 func TestItem_Average(t *testing.T) {
 	Sum := tf.Function(t, Item.Sum)
 

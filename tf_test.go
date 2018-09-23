@@ -1,6 +1,7 @@
 package tf_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/elliotchance/tf"
@@ -23,6 +24,42 @@ func NewNil(o *Optional) string {
 func TestNil(t *testing.T) {
 	NewNil := tf.Function(t, NewNil)
 	NewNil(nil).Returns("default")
+}
+
+type CustomError struct {
+	err error
+}
+
+func (c CustomError) Error() string {
+	return c.err.Error()
+}
+
+func TestError(t *testing.T) {
+	t.Run("Catches basic error", func(t *testing.T) {
+		NewError := tf.Function(t, func() error {
+			return errors.New("some error")
+		})
+
+		NewError().Errors()
+	})
+
+	t.Run("Catches named error", func(t *testing.T) {
+		NewError := tf.Function(t, func() error {
+			return errors.New("some error")
+		})
+
+		NewError().Errors("some error")
+	})
+
+	t.Run("Catches particular class error", func(t *testing.T) {
+		custom := CustomError{errors.New("custom error")}
+
+		NewError := tf.Function(t, func() error {
+			return custom
+		})
+
+		NewError().Errors(custom)
+	})
 }
 
 type Item struct {

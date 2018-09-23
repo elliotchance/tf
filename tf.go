@@ -46,15 +46,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// F wrapper around a func which handles testing instance, agrs and reveals function name
-type F struct {
-	t         *testing.T
-	fn        interface{}
-	args      []interface{}
-	fnArgsIn  []reflect.Type
-	fnArgsOut []reflect.Type
-	fnName    string
-}
+type (
+	// F wrapper around a func which handles testing instance, agrs and reveals function name
+	F struct {
+		t         *testing.T
+		fn        interface{}
+		args      []interface{}
+		fnArgsIn  []reflect.Type
+		fnArgsOut []reflect.Type
+		fnName    string
+	}
+
+	handleFunc func(t *testing.T, expected []interface{}, actual []interface{})
+)
 
 var (
 	funcMap = map[string]int{}
@@ -66,6 +70,64 @@ var (
 //	Remainder(1, 2).Returns(3)
 //
 func (f *F) Returns(expected ...interface{}) {
+	f.runFunc(func(t *testing.T, expected []interface{}, actual []interface{}) {
+		assert.Equal(t, expected, actual)
+	}, expected...)
+}
+
+// Errors check if function returns errors and match expectation you provided
+//
+//	BasicErrorer := tf.Function(t, func() error { return errors.New("some error") } )
+//	BasicErrorer().Errors()
+//
+// You also can provide strings to match message
+//
+//	AdvancedErrorer := tf.Function(t, func() error { return errors.New("some error") } )
+//	AdvancedErrorer().Errors("some error")
+//
+// Or you may provide your custom error type to check it bumps correctly
+//
+//  custom := MyCustomError{errors.New("some error")}
+//	TypeErrorer := tf.Function(t, func() error { return custom } )
+//	TypeErrorer().Errors(custom)
+//
+func (f *F) Errors(args ...interface{}) {
+	f.runFunc(func(t *testing.T, expected []interface{}, actual []interface{}) {
+		if len(actual) == 0 {
+			assert.Fail(t, "function don't return anything")
+			return
+		}
+
+		// Grab last argument it should be an error
+		last := actual[len(actual)-1]
+
+		err, ok := last.(error)
+		if !ok {
+			assert.Fail(t, "last argument is not an error")
+			return
+		}
+
+		assert.Error(t, err)
+		if args == nil {
+			return
+		}
+
+		// Checking what args we are provided
+		firstArg := args[0]
+		switch firstArg.(type) {
+		case string:
+			// Check error message
+			assert.Equal(t, firstArg.(string), err.Error())
+		case error:
+			assert.Equal(t, firstArg.(error).Error(), err.Error())
+			assert.IsType(t, firstArg, last)
+		default:
+			assert.Fail(t, "unknown providen expectation")
+		}
+	})
+}
+
+func (f *F) runFunc(h handleFunc, expected ...interface{}) {
 	if _, ok := funcMap[f.fnName]; !ok {
 		funcMap[f.fnName] = 0
 	}
@@ -96,7 +158,7 @@ func (f *F) Returns(expected ...interface{}) {
 			}
 		}
 
-		assert.Equal(t, expected, returns)
+		h(t, expected, returns)
 	})
 }
 

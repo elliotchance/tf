@@ -128,3 +128,15 @@ func TestTrueFalse(t *testing.T) {
 	Booler(true).True()
 	Booler(false).False()
 }
+
+func TestNamedSum(t *testing.T) {
+	Sum := tf.NamedFunction(t, "Sum1", Item.Add)
+
+	Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
+	Sum(Item{1.3, 4.6}, 3.5).Returns(9.4)
+
+	Sum = tf.NamedFunction(t, "Sum2", Item.Add)
+
+	Sum(Item{1.3, 14.5}, 3.4).Returns(19.2)
+	Sum(Item{21.3, 4.6}, 3.5).Returns(29.4)
+}

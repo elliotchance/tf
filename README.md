@@ -2,10 +2,10 @@
 
 tf is a microframework for parametrized testing of functions in Go.
 
-* [Function](#functions)
+* [Function](#function)
 * [ServeHTTP](#servehttp)
 
-# Functions
+# Function
 
 It offers a simple and intuitive syntax for tests by wrapping the function:
 
@@ -40,6 +40,24 @@ The above test will output (in verbose mode):
 === RUN   TestRemainder/Remainder#3
 --- PASS: TestRemainder/Remainder#3 (0.00s)
 PASS
+```
+
+## Grouping
+
+Use `NamedFunction` to specify a custom name for the function/group:
+
+```go
+func TestNamedSum(t *testing.T) {
+	Sum := tf.NamedFunction(t, "Sum1", Item.Add)
+
+	Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
+	Sum(Item{1.3, 4.6}, 3.5).Returns(9.4)
+
+	Sum = tf.NamedFunction(t, "Sum2", Item.Add)
+
+	Sum(Item{1.3, 14.5}, 3.4).Returns(19.2)
+	Sum(Item{21.3, 4.6}, 3.5).Returns(29.4)
+}
 ```
 
 ## Struct Functions

@@ -47,7 +47,8 @@ import (
 )
 
 type (
-	// F wrapper around a func which handles testing instance, agrs and reveals function name
+	// F wrapper around a func which handles testing instance, agrs and reveals
+	// function name
 	F struct {
 		t         *testing.T
 		fn        interface{}
@@ -223,8 +224,8 @@ func getFunctionReturns(fn interface{}) []reflect.Type {
 	return args
 }
 
-// Function wraps fn into F testing type and returns back function to which you can use
-// as a regular function in e.g:
+// Function wraps fn into F testing type and returns back function to which you
+// can use as a regular function in e.g:
 //
 //   // Remainder returns the quotient and remainder from dividing two integers.
 //   func Remainder(a, b int) (int, int) {
@@ -240,6 +241,26 @@ func getFunctionReturns(fn interface{}) []reflect.Type {
 //   }
 //
 func Function(t *testing.T, fn interface{}) func(args ...interface{}) *F {
+	return NamedFunction(t, getFunctionName(fn), fn)
+}
+
+// NamedFunction works the same way as Function but allows a custom name for the
+// function to be set.
+//
+// This is especially important when the function is anonymous, or it can be
+// used for grouping tests:
+//
+//   Sum := tf.NamedFunction(t, "Sum1", Item.Add)
+//
+//   Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
+//   Sum(Item{1.3, 4.6}, 3.5).Returns(9.4)
+//
+//   Sum = tf.NamedFunction(t, "Sum2", Item.Add)
+//
+//   Sum(Item{1.3, 14.5}, 3.4).Returns(19.2)
+//   Sum(Item{21.3, 4.6}, 3.5).Returns(29.4)
+//
+func NamedFunction(t *testing.T, fnName string, fn interface{}) func(args ...interface{}) *F {
 	return func(args ...interface{}) *F {
 		return &F{
 			t:         t,
@@ -247,7 +268,7 @@ func Function(t *testing.T, fn interface{}) func(args ...interface{}) *F {
 			args:      args,
 			fnArgsIn:  getFunctionArgs(fn),
 			fnArgsOut: getFunctionReturns(fn),
-			fnName:    getFunctionName(fn),
+			fnName:    fnName,
 		}
 	}
 }

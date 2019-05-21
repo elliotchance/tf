@@ -133,7 +133,7 @@ func TestNamedSum(t *testing.T) {
 	Sum := tf.NamedFunction(t, "Sum1", Item.Add)
 
 	Sum(Item{1.3, 4.5}, 3.4).Returns(9.2)
-	Sum(Item{1.3, 4.6}, 3.5).Returns(9.4)
+	Sum(Item{1.4, 4.6}, 3.5).Returns(9.5)
 
 	Sum = tf.NamedFunction(t, "Sum2", Item.Add)
 

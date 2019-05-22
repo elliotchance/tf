@@ -2,8 +2,11 @@
 
 tf is a microframework for parametrized testing of functions in Go.
 
-* [Function](#function)
-* [ServeHTTP](#servehttp)
+- [Function](#function)
+  * [Grouping](#grouping)
+  * [Struct Functions](#struct-functions)
+- [ServeHTTP](#servehttp)
+- [Environment Variables](#environment-variables)
 
 # Function
 
@@ -140,3 +143,24 @@ run(&tf.MultiHTTPTest{
 ```
 
 Each step will only proceed if the previous step was successful.
+
+# Environment Variables
+
+`SetEnv` sets an environment variable and returns a reset function to ensure
+the environment is always returned to it's previous state:
+
+```go
+resetEnv := tf.SetEnv(t, "HOME", "/somewhere/else")
+defer resetEnv()
+```
+
+If you would like to set multiple environment variables, you can use `SetEnvs`
+in the same way:
+
+```go
+resetEnv := tf.SetEnvs(t, map[string]string{
+    "HOME":  "/somewhere/else",
+    "DEBUG": "on",
+})
+defer resetEnv()
+```

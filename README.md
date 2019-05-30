@@ -1,14 +1,16 @@
 # tf
 
-tf is a microframework for parametrized testing of functions in Go.
+tf is a microframework for parametrized testing of functions and HTTP in Go.
 
-- [Function](#function)
+- [Functions](#functions)
   * [Grouping](#grouping)
   * [Struct Functions](#struct-functions)
-- [ServeHTTP](#servehttp)
+- [HTTP Testing](#http-testing)
+  * [Client](#client)
+  * [Server](#server)
 - [Environment Variables](#environment-variables)
 
-# Function
+# Functions
 
 It offers a simple and intuitive syntax for tests by wrapping the function:
 
@@ -84,7 +86,9 @@ func TestItem_Add(t *testing.T) {
 }
 ```
 
-# ServeHTTP
+# HTTP Testing
+
+## Client
 
 Super easy HTTP testing by using the ServeHTTP function. This means that you do
 not have to run the server and it is compatible with all HTTP libraries and
@@ -143,6 +147,52 @@ run(&tf.MultiHTTPTest{
 ```
 
 Each step will only proceed if the previous step was successful.
+
+## Server
+
+Sometimes you need to mock HTTP servers where the only option is to provide a
+URL endpoint through to your test. That is, when you do not have direct access
+to the router, or it's impractical to inject the behavior.
+
+For case this you can use a `HTTPServer`:
+
+```go
+// 0 means to use a random port, or you can provide your own.
+server := tf.StartHTTPServer(0).
+	AddHandlers(map[string]http.HandlerFunc{
+		"/hi": func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`hello`))
+		},
+		"/easy": tf.HTTPJSONResponse(200, []int{1, 2, 3}),
+	})
+
+// Always remember to tear down the resources when the test ends.
+defer server.Shutdown()
+
+// Your test code here...
+server.Endpoint() // http://localhost:61223
+```
+
+Using a real HTTP server has some benefits:
+
+1. It's isolated. That means it does not interfere in anyway with the global
+HTTP server.
+
+2. It can be used in parallel. You can either share the same `HTTPServer` across
+many tests (such as in `TestMain`), or create one for each test in parallel.
+Providing `0` for the port (as in the example above) will ensure that it always
+selects an unused random port.
+
+3. It mutable. After creating and starting the `HTTPServer` you can add/remove
+handlers. This is useful when most tests need a base logic, but some cases need
+to return special under specific scenarios.
+
+You can create your own handlers, of course, but there are a few common ones
+that also ship with `tf`:
+
+- `HTTPEmptyResponse(statusCode int)`
+- `HTTPStringResponse(statusCode int, body string)`
+- `HTTPJSONResponse(statusCode int, body interface{})`
 
 # Environment Variables
 
